@@ -1,0 +1,15 @@
+name: smartlogix-frontend
+
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_AZURE_CLIENT_ID: ${VITE_AZURE_CLIENT_ID}
+        VITE_AZURE_TENANT_ID: ${VITE_AZURE_TENANT_ID}
+        VITE_AZURE_REDIRECT_URI: ${VITE_AZURE_REDIRECT_URI}
+    container_name: sl-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"

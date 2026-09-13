@@ -1,0 +1,118 @@
+name: smartlogix-backend
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: sl-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"   # opcional, solo si necesitas conectarte desde fuera del EC2
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  eureka:
+    build:
+      context: .
+      args:
+        MODULE: infraestructure/eurekaServer
+    container_name: sl-eureka
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+
+  apigateway:
+    build:
+      context: .
+      args:
+        MODULE: infraestructure/apiGateway
+    container_name: sl-apigateway
+    restart: unless-stopped
+    depends_on:
+      - eureka
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+    ports:
+      - "8089:8089"
+
+  inventory:
+    build:
+      context: .
+      args:
+        MODULE: microservices/inventory
+    container_name: sl-inventory
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/inventory_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+
+  order:
+    build:
+      context: .
+      args:
+        MODULE: microservices/order
+    container_name: sl-order
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/order_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+
+  shipment:
+    build:
+      context: .
+      args:
+        MODULE: microservices/shipment
+    container_name: sl-shipment
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/shipment_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+
+  bff:
+    build:
+      context: .
+      args:
+        MODULE: microservices/bff
+    container_name: sl-bff
+    restart: unless-stopped
+    depends_on:
+      eureka:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+
+  # keyCloakAdapter: ya no lo usa el frontend (se reemplazó por Entra ID/MSAL).
+  # Se deja fuera del compose; descomenta/agrega un bloque igual a los de
+  # arriba si en algún momento vuelves a necesitarlo.
+
+volumes:
+  mysql_data:
