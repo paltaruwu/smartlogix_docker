@@ -63,7 +63,8 @@ services:
 
   eureka:
     build:
-      context: ./backend/infraestructure/eurekaServer
+      context: ./backend
+      dockerfile: infraestructure/eurekaServer/Dockerfile
     container_name: sl-eureka-cloud
     restart: unless-stopped
     ports:
@@ -176,7 +177,8 @@ services:
 
   bff:
     build:
-      context: ./backend/microservices/bff
+      context: ./backend
+      dockerfile: microservices/bff/Dockerfile
     container_name: sl-bff-cloud
     restart: unless-stopped
     depends_on:
