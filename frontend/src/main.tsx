@@ -9,30 +9,52 @@ import { PublicClientApplication, EventType } from "@azure/msal-browser";
 import { MsalProvider } from "@azure/msal-react";
 import { msalConfig } from "./config/authConfig";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
-// Instancia de MSAL para Azure Entra ID. Se crea una sola vez fuera del render.
 const msalInstance = new PublicClientApplication(msalConfig);
 
-// Si ya hay una cuenta autenticada previamente (sesión guardada), la deja activa.
-if (!msalInstance.getActiveAccount() && msalInstance.getAllAccounts().length > 0) {
-    msalInstance.setActiveAccount(msalInstance.getAllAccounts()[0]);
-}
+let isRendered = false;
 
-msalInstance.addEventCallback((event) => {
-    if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
-        const account = (event.payload as { account?: import("@azure/msal-browser").AccountInfo }).account;
-        if (account) msalInstance.setActiveAccount(account);
+const renderApp = () => {
+    if (isRendered) return;
+    isRendered = true;
+
+    try {
+        if (!msalInstance.getActiveAccount() && msalInstance.getAllAccounts().length > 0) {
+            msalInstance.setActiveAccount(msalInstance.getAllAccounts()[0]);
+        }
+
+        msalInstance.addEventCallback((event) => {
+            if (event.eventType === EventType.LOGIN_SUCCESS && event.payload) {
+                const account = (event.payload as { account?: import("@azure/msal-browser").AccountInfo }).account;
+                if (account) msalInstance.setActiveAccount(account);
+            }
+        });
+    } catch (e) {
+        console.warn("MSAL setup event warning:", e);
     }
-});
 
-createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-        <MsalProvider instance={msalInstance}>
-            <AuthProvider>
-                <CartProvider>
-                    <App />
-                </CartProvider>
-            </AuthProvider>
-        </MsalProvider>
-    </StrictMode>
-);
+    const container = document.getElementById("root")!;
+    createRoot(container).render(
+        <StrictMode>
+            <ErrorBoundary>
+                <MsalProvider instance={msalInstance}>
+                    <AuthProvider>
+                        <CartProvider>
+                            <App />
+                        </CartProvider>
+                    </AuthProvider>
+                </MsalProvider>
+            </ErrorBoundary>
+        </StrictMode>
+    );
+};
+
+// Initialize MSAL and handle redirect response before rendering
+msalInstance.initialize()
+    .then(() => msalInstance.handleRedirectPromise())
+    .then(renderApp)
+    .catch((error) => {
+        console.error("MSAL Initialization Error:", error);
+        renderApp();
+    });

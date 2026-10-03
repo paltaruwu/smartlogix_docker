@@ -1,6 +1,11 @@
 server:
   port: 8089
 
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://eureka:8761/eureka/
+
 spring:
   security:
     oauth2:
@@ -16,6 +21,7 @@ spring:
             allowedOrigins:
               - "http://localhost:5173"
               - "http://localhost"
+              - "https://localhost"
               - "https://54.90.203.135"
             allowedMethods:
               - GET
@@ -51,5 +57,12 @@ spring:
           uri: lb://microservices-bff
           predicates:
             - Path=/api/bff/**
+          filters:
+            - StripPrefix=1
+
+        - id: rabbitadmin_service
+          uri: lb://microservices-rabbitadmin
+          predicates:
+            - Path=/api/rabbit-admin/**
           filters:
             - StripPrefix=1
