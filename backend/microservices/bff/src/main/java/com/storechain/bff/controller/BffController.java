@@ -15,12 +15,17 @@ public class BffController {
     @Autowired
     private WebClient.Builder webClientBuilder;
 
+    private String gatewayUrl() {
+        String url = System.getenv("GATEWAY_URL");
+        return (url != null && !url.isEmpty()) ? url : "http://localhost:8089";
+    }
+
     @PostMapping("/order")
     public Mono<OrderResponse> create(@RequestBody OrderRequest order) {
 
         return webClientBuilder.build()
                 .post()
-                .uri("http://localhost:8089/api/order/v1")
+                .uri(gatewayUrl() + "/api/order/v1")
                 .bodyValue(order)
                 .retrieve()
                 .bodyToMono(OrderResponse.class);
@@ -30,7 +35,7 @@ public class BffController {
 
         return webClientBuilder.build()
                 .post()
-                .uri("http://localhost:8089/api/order/v1")
+                .uri(gatewayUrl() + "/api/order/v1")
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(OrderResponse.class);

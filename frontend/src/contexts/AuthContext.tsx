@@ -14,37 +14,60 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const { instance, accounts } = useMsal();
-    const isAuthenticated = useIsAuthenticated();
+    let instance: ReturnType<typeof useMsal>["instance"] | null = null;
+    let accounts: AccountInfo[] = [];
+    let isAuthenticated = false;
+
+    try {
+        const msal = useMsal();
+        instance = msal.instance;
+        accounts = msal.accounts;
+    } catch (e) {
+        console.warn("Msal context fallback active:", e);
+    }
+
+    try {
+        const isAuth = useIsAuthenticated();
+        isAuthenticated = isAuth;
+    } catch {
+        isAuthenticated = accounts.length > 0;
+    }
 
     const user = accounts[0] ?? null;
 
-    // Dispara el login contra Azure Entra ID (ventana emergente).
     const login = async () => {
-        await instance.loginPopup(loginRequest);
+        if (!instance) return;
+        try {
+            await instance.loginRedirect(loginRequest);
+        } catch (err) {
+            console.error("Error en loginRedirect:", err);
+        }
     };
 
     const logout = () => {
-        instance.logoutPopup({
-            postLogoutRedirectUri: "/",
-        });
+        if (!instance) return;
+        try {
+            instance.logoutRedirect({
+                postLogoutRedirectUri: "/",
+            });
+        } catch (err) {
+            console.error("Error en logoutRedirect:", err);
+        }
     };
 
-    // Obtiene el access token vigente para adjuntarlo como Bearer al llamar al backend.
-    // Intenta primero en silencio (sin mostrar UI) y si el token expiró, pide interacción.
     const getAccessToken = async (): Promise<string | null> => {
-        if (accounts.length === 0) return null;
+        if (!instance || accounts.length === 0) return null;
 
         try {
             const response = await instance.acquireTokenSilent({
                 ...loginRequest,
                 account: accounts[0],
             });
-            return response.accessToken;
+            return response.idToken;
         } catch (error) {
             if (error instanceof InteractionRequiredAuthError) {
                 const response = await instance.acquireTokenPopup(loginRequest);
-                return response.accessToken;
+                return response.idToken;
             }
             console.error("Error obteniendo el access token de Entra ID", error);
             return null;
@@ -60,6 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => {
     const ctx = useContext(AuthContext);
-    if (!ctx) throw new Error("useAuth debe usarse dentro de un AuthProvider");
+    if (!ctx) {
+        return {
+            isAuthenticated: false,
+            user: null,
+            login: async () => {},
+            logout: () => {},
+            getAccessToken: async () => null,
+        };
+    }
     return ctx;
 };

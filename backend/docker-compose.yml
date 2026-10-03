@@ -12,7 +12,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./mysql-init:/docker-entrypoint-initdb.d
     ports:
-      - "3306:3306"   # opcional, solo si necesitas conectarte desde fuera del EC2
+      - "3306:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 5s
@@ -21,9 +21,7 @@ services:
 
   eureka:
     build:
-      context: .
-      args:
-        MODULE: infraestructure/eurekaServer
+      context: ./infraestructure/eurekaServer
     container_name: sl-eureka
     restart: unless-stopped
     ports:
@@ -31,9 +29,7 @@ services:
 
   apigateway:
     build:
-      context: .
-      args:
-        MODULE: infraestructure/apiGateway
+      context: ./infraestructure/apiGateway
     container_name: sl-apigateway
     restart: unless-stopped
     depends_on:
@@ -42,12 +38,12 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
     ports:
       - "8089:8089"
+    volumes:
+      - ./apigateway-config/application.yml:/app/config/application.yml:ro
 
   inventory:
     build:
-      context: .
-      args:
-        MODULE: microservices/inventory
+      context: ./microservices/inventory
     container_name: sl-inventory
     restart: unless-stopped
     depends_on:
@@ -63,9 +59,7 @@ services:
 
   order:
     build:
-      context: .
-      args:
-        MODULE: microservices/order
+      context: ./microservices/order
     container_name: sl-order
     restart: unless-stopped
     depends_on:
@@ -81,9 +75,7 @@ services:
 
   shipment:
     build:
-      context: .
-      args:
-        MODULE: microservices/shipment
+      context: ./microservices/shipment
     container_name: sl-shipment
     restart: unless-stopped
     depends_on:
@@ -99,9 +91,7 @@ services:
 
   bff:
     build:
-      context: .
-      args:
-        MODULE: microservices/bff
+      context: ./microservices/bff
     container_name: sl-bff
     restart: unless-stopped
     depends_on:
@@ -109,10 +99,6 @@ services:
         condition: service_started
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
-
-  # keyCloakAdapter: ya no lo usa el frontend (se reemplazó por Entra ID/MSAL).
-  # Se deja fuera del compose; descomenta/agrega un bloque igual a los de
-  # arriba si en algún momento vuelves a necesitarlo.
 
 volumes:
   mysql_data:

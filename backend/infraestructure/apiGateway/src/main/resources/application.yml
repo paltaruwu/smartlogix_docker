@@ -1,8 +1,13 @@
 server:
   port: 8089
 
-
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: https://login.microsoftonline.com/49d2b527-d999-453e-9ca1-ae9dd9284fc4/discovery/v2.0/keys
+          issuer-uri: https://login.microsoftonline.com/49d2b527-d999-453e-9ca1-ae9dd9284fc4/v2.0
   cloud:
     gateway:
       globalcors:
@@ -10,7 +15,8 @@ spring:
           '[/**]':
             allowedOrigins:
               - "http://localhost:5173"
-              - "http://TU_IP_O_DOMINIO_EC2"   # <-- reemplazar por la URL pública real del frontend en EC2
+              - "http://localhost"
+              - "https://54.90.203.135"
             allowedMethods:
               - GET
               - POST

@@ -16,3 +16,21 @@ backend/**/.mvn/wrapper/maven-wrapper.jar
 .DS_Store
 Thumbs.db
 *.log
+
+# ---------- Secretos / claves ----------
+llave/
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# ---------- Terraform (estado y variables con datos sensibles) ----------
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+
+# ---------- Paquetes / artefactos de despliegue ----------
+*.tar.gz
+hs_err_pid*.log

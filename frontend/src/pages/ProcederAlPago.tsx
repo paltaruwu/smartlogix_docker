@@ -13,6 +13,7 @@ export const ProcederAlPago = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [paidTotal, setPaidTotal] = useState(0);
 
     const handlePay = async () => {
         if (!clientName || !address) {
@@ -23,6 +24,7 @@ export const ProcederAlPago = () => {
         setLoading(true);
         setError(null);
         try {
+            setPaidTotal(totalAmount);
             await pay(clientName, address); // Enviamos los datos reales
             setSuccess(true);
         } catch (e) {
@@ -78,7 +80,7 @@ export const ProcederAlPago = () => {
 
                 <div className="d-flex justify-content-between align-items-center mb-4 p-3 rounded-4" style={{ background: 'rgba(255,255,255,0.7)' }}>
                     <h4 className="m-0 text-muted">Total a pagar:</h4>
-                    <h3 className="m-0 fw-bold" style={{ color: '#0077b6' }}>{formatCLP(totalAmount)}</h3>
+                    <h3 className="m-0 fw-bold" style={{ color: '#0077b6' }}>{formatCLP(success ? paidTotal : totalAmount)}</h3>
                 </div>
 
                 {error && <div className="alert alert-danger rounded-4 shadow-sm border-0">{error}</div>}
