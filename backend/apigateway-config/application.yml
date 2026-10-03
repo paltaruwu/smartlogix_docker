@@ -23,6 +23,8 @@ spring:
               - "http://localhost"
               - "https://localhost"
               - "https://54.90.203.135"
+            allowedOriginPatterns:
+              - "https://*.trycloudflare.com"
             allowedMethods:
               - GET
               - POST
