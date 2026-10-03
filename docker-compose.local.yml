@@ -1,0 +1,207 @@
+name: smartlogix-local
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: sl-mysql-local
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - mysql_data_local:/var/lib/mysql
+      - ./backend/mysql-init:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq1:
+    image: rabbitmq:3.13-management
+    container_name: sl-rabbitmq1-local
+    hostname: rabbitmq1
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_ERLANG_COOKIE: SMARTLOGIX_ERLANG_COOKIE
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq1_data:/var/lib/rabbitmq
+      - ./backend/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./backend/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq2:
+    image: rabbitmq:3.13-management
+    container_name: sl-rabbitmq2-local
+    hostname: rabbitmq2
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
+      RABBITMQ_ERLANG_COOKIE: SMARTLOGIX_ERLANG_COOKIE
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq2_data:/var/lib/rabbitmq
+      - ./backend/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./backend/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    depends_on:
+      rabbitmq1:
+        condition: service_healthy
+
+  eureka:
+    build:
+      context: ./backend/infraestructure/eurekaServer
+    container_name: sl-eureka-local
+    restart: unless-stopped
+    ports:
+      - "8761:8761"
+
+  apigateway:
+    build:
+      context: ./backend/infraestructure/apiGateway
+    container_name: sl-apigateway-local
+    restart: unless-stopped
+    depends_on:
+      - eureka
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/app/config/
+    volumes:
+      - ./backend/apigateway-config/application.yml:/app/config/application.yml:ro
+    ports:
+      - "8089:8089"
+
+  inventory:
+    build:
+      context: ./backend
+      dockerfile: microservices/inventory/Dockerfile
+    container_name: sl-inventory-local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+      rabbitmq1:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/inventory_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
+      SPRING_SQL_INIT_MODE: always
+      SPRING_SQL_INIT_DATA_LOCATIONS: file:/seed/data.sql
+      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin123
+    volumes:
+      - ./backend/seed/inventory-data.sql:/seed/data.sql:ro
+
+  order:
+    build:
+      context: ./backend
+      dockerfile: microservices/order/Dockerfile
+    container_name: sl-order-local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+      rabbitmq1:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/order_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      INVENTORY_URL: http://inventory:8086
+      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin123
+
+  shipment:
+    build:
+      context: ./backend
+      dockerfile: microservices/shipment/Dockerfile
+    container_name: sl-shipment-local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+      rabbitmq1:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/shipment_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin123
+
+  rabbitadmin:
+    build:
+      context: ./backend
+      dockerfile: microservices/rabbitadmin/Dockerfile
+    container_name: sl-rabbitadmin-local
+    restart: unless-stopped
+    depends_on:
+      eureka:
+        condition: service_started
+      rabbitmq1:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin123
+
+  bff:
+    build:
+      context: ./backend/microservices/bff
+    container_name: sl-bff-local
+    restart: unless-stopped
+    depends_on:
+      eureka:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      GATEWAY_URL: http://apigateway:8089
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8089
+        VITE_AZURE_CLIENT_ID: f3492a38-4fa0-42e6-bbaf-f0d36163cccd
+        VITE_AZURE_TENANT_ID: 49d2b527-d999-453e-9ca1-ae9dd9284fc4
+        VITE_AZURE_REDIRECT_URI: http://localhost
+    container_name: sl-frontend-local
+    restart: unless-stopped
+    volumes:
+      - ./frontend/nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+
+volumes:
+  mysql_data_local:
+  rabbitmq1_data:
+  rabbitmq2_data:

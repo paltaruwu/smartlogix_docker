@@ -2,6 +2,7 @@ package com.storechain.order.service;
 
 import com.storechain.order.entities.*;
 import com.storechain.order.exception.BusinessRuleException;
+import com.storechain.order.messaging.OrderEventPublisher;
 import com.storechain.order.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,14 @@ public class OrderService {
 
     @Autowired
     private WebClient.Builder webClientBuilder;
+
+    @Autowired
+    private OrderEventPublisher eventPublisher;
+
+    private String inventoryUrl() {
+        String url = System.getenv("INVENTORY_URL");
+        return (url != null && !url.isEmpty()) ? url : "http://localhost:8086";
+    }
 
     private String generateOrderNumber() {
         return "ORD-" + System.currentTimeMillis();
@@ -39,7 +48,7 @@ public class OrderService {
                 // Consultar producto en Inventory
                 InventoryResponse product = webClientBuilder.build()
                         .get()
-                        .uri("http://localhost:8086/inventory/v1/{id}", detail.getProductId())
+                        .uri(inventoryUrl() + "/inventory/v1/" + detail.getProductId())
                         .retrieve()
                         .bodyToMono(InventoryResponse.class)
                         .block();
@@ -56,13 +65,7 @@ public class OrderService {
                 // DESCONTAR STOCK
                 webClientBuilder.build()
                         .put()
-                        .uri(uriBuilder -> uriBuilder
-                                .scheme("http")
-                                .host("localhost")
-                                .port(8086)
-                                .path("/inventory/v1/{id}/stock")
-                                .queryParam("quantity", -detail.getQuantity())
-                                .build(detail.getProductId()))
+                        .uri(inventoryUrl() + "/inventory/v1/" + detail.getProductId() + "/stock?quantity=" + (-detail.getQuantity()))
                         .retrieve()
                         .bodyToMono(Void.class)
                         .block();
@@ -83,7 +86,9 @@ public class OrderService {
         order.setOrderNumber(generateOrderNumber());
         order.setStatus("CREADO");
 
-        return orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+        eventPublisher.publishOrderCreated(savedOrder);
+        return savedOrder;
     }
     public List<Order> getAll() {
         return orderRepository.findAll();
@@ -117,24 +122,6 @@ public class OrderService {
                     );
                 }
 
-                // 🔥 LLAMADA A SHIPMENT
-                try {
-                    webClientBuilder.build()
-                            .post()
-                            .uri("http://localhost:8087/shipment/v1")
-                            .bodyValue(order)
-                            .retrieve()
-                            .bodyToMono(Void.class)
-                            .block();
-
-                } catch (Exception ex) {
-                    throw new BusinessRuleException(
-                            "5030",
-                            HttpStatus.BAD_GATEWAY,
-                            "Error comunicando con Shipment"
-                    );
-                }
-
                 order.setStatus("APROBADO");
                 break;
 
@@ -159,6 +146,12 @@ public class OrderService {
                 );
         }
 
-        return orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+
+        if ("APROBADO".equals(savedOrder.getStatus())) {
+            eventPublisher.publishShipmentDispatch(savedOrder);
+        }
+
+        return savedOrder;
     }
 }
