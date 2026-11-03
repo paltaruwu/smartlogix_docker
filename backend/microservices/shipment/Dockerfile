@@ -8,6 +8,10 @@ COPY microservices/inventory/pom.xml ./microservices/inventory/
 COPY microservices/shipment/pom.xml ./microservices/shipment/
 COPY microservices/bff/pom.xml ./microservices/bff/
 COPY microservices/rabbitadmin/pom.xml ./microservices/rabbitadmin/
+COPY microservices/technician/pom.xml ./microservices/technician/
+COPY microservices/payment/pom.xml ./microservices/payment/
+COPY microservices/notification/pom.xml ./microservices/notification/
+COPY microservices/kafkaadmin/pom.xml ./microservices/kafkaadmin/
 COPY infraestructure/pom.xml ./infraestructure/
 COPY infraestructure/apiGateway/pom.xml ./infraestructure/apiGateway/
 COPY infraestructure/eurekaServer/pom.xml ./infraestructure/eurekaServer/

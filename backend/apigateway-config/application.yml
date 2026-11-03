@@ -62,6 +62,34 @@ spring:
           filters:
             - StripPrefix=1
 
+        - id: technician_service
+          uri: lb://microservices-technician
+          predicates:
+            - Path=/api/technician/**
+          filters:
+            - StripPrefix=1
+
+        - id: payment_service
+          uri: lb://microservices-payment
+          predicates:
+            - Path=/api/payment/**
+          filters:
+            - StripPrefix=1
+
+        - id: notification_service
+          uri: lb://microservices-notification
+          predicates:
+            - Path=/api/notification/**
+          filters:
+            - StripPrefix=1
+
+        - id: kafkaadmin_service
+          uri: lb://microservices-kafkaadmin
+          predicates:
+            - Path=/api/kafka-admin/**
+          filters:
+            - StripPrefix=1
+
         - id: rabbitadmin_service
           uri: lb://microservices-rabbitadmin
           predicates:
