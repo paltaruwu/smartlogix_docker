@@ -23,21 +23,12 @@ export const approveOrder = async (id: number, token: string) => {
 };
 
 export const addStock = async (id: number, quantity: number, token: string) => {
-    // Publica a inventory.restock.queue via RabbitMQ (mensajería asíncrona)
-    const res = await fetch(`${API_URL}/rabbit-admin/v1/publish`, {
+    const reason = encodeURIComponent("Ingreso desde Panel Admin");
+    const res = await fetch(`${API_URL}/inventory/v1/${id}/stock/replenish?quantity=${quantity}&reason=${reason}`, {
         method: "POST",
-        headers: { ...authHeaders(token), "Content-Type": "application/json" },
-        body: JSON.stringify({
-            exchange: "smartlogix.topic",
-            routingKey: "inventory.restock",
-            payload: {
-                productId: id,
-                quantity: quantity,
-                reason: "Ingreso desde Panel Admin",
-            },
-        }),
+        headers: authHeaders(token),
     });
-    if (!res.ok) throw new Error("Error publicando mensaje de restock");
+    if (!res.ok) throw new Error("Error reponiendo stock");
 };
 
 export const getProductMovements = async (id: number, token: string) => {
