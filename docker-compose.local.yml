@@ -96,8 +96,6 @@ services:
         condition: service_healthy
       eureka:
         condition: service_started
-      rabbitmq1:
-        condition: service_healthy
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/inventory_db
@@ -107,9 +105,7 @@ services:
       SPRING_JPA_DEFER_DATASOURCE_INITIALIZATION: "true"
       SPRING_SQL_INIT_MODE: always
       SPRING_SQL_INIT_DATA_LOCATIONS: file:/seed/data.sql
-      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
-      RABBITMQ_USERNAME: admin
-      RABBITMQ_PASSWORD: admin123
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29092,kafka3:29092
     volumes:
       - ./backend/seed/inventory-data.sql:/seed/data.sql:ro
 
@@ -124,17 +120,13 @@ services:
         condition: service_healthy
       eureka:
         condition: service_started
-      rabbitmq1:
-        condition: service_healthy
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/order_db
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
       INVENTORY_URL: http://inventory:8086
-      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
-      RABBITMQ_USERNAME: admin
-      RABBITMQ_PASSWORD: admin123
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29092,kafka3:29092
 
   shipment:
     build:
@@ -147,11 +139,86 @@ services:
         condition: service_healthy
       eureka:
         condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/shipment_db
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29092,kafka3:29092
+
+  kafkaadmin:
+    build:
+      context: ./backend
+      dockerfile: microservices/kafkaadmin/Dockerfile
+    container_name: sl-kafkaadmin-local
+    restart: unless-stopped
+    depends_on:
+      eureka:
+        condition: service_started
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      KAFKA_BOOTSTRAP_SERVERS: kafka1:29092,kafka2:29092,kafka3:29092
+
+  technician:
+    build:
+      context: ./backend
+      dockerfile: microservices/technician/Dockerfile
+    container_name: sl-technician-local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
       rabbitmq1:
         condition: service_healthy
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/shipment_db
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/technician_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin123
+
+  payment:
+    build:
+      context: ./backend
+      dockerfile: microservices/payment/Dockerfile
+    container_name: sl-payment-local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+      rabbitmq1:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/payment_db?createDatabaseIfNotExist=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin123
+
+  notification:
+    build:
+      context: ./backend
+      dockerfile: microservices/notification/Dockerfile
+    container_name: sl-notification-local
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka:
+        condition: service_started
+      rabbitmq1:
+        condition: service_healthy
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka:8761/eureka/
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/notification_db?createDatabaseIfNotExist=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: root
       RABBITMQ_ADDRESSES: rabbitmq1:5672,rabbitmq2:5672
@@ -164,6 +231,8 @@ services:
       dockerfile: microservices/rabbitadmin/Dockerfile
     container_name: sl-rabbitadmin-local
     restart: unless-stopped
+    ports:
+      - "8090:8090"
     depends_on:
       eureka:
         condition: service_started

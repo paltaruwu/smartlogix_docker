@@ -18,6 +18,9 @@ public class Order {
     private String address;
     private String status;
 
+    // Estado del envío, lo actualiza el consumidor Kafka de shipment-events
+    private String shipmentStatus;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderDetail> details;
 }

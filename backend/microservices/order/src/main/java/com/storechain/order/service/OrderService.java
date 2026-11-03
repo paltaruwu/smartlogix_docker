@@ -2,7 +2,7 @@ package com.storechain.order.service;
 
 import com.storechain.order.entities.*;
 import com.storechain.order.exception.BusinessRuleException;
-import com.storechain.order.messaging.OrderEventPublisher;
+import com.storechain.order.messaging.OrderKafkaPublisher;
 import com.storechain.order.repository.OrderRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,7 +21,7 @@ public class OrderService {
     private WebClient.Builder webClientBuilder;
 
     @Autowired
-    private OrderEventPublisher eventPublisher;
+    private OrderKafkaPublisher kafkaPublisher;
 
     private String inventoryUrl() {
         String url = System.getenv("INVENTORY_URL");
@@ -87,7 +87,7 @@ public class OrderService {
         order.setStatus("CREADO");
 
         Order savedOrder = orderRepository.save(order);
-        eventPublisher.publishOrderCreated(savedOrder);
+        kafkaPublisher.publish(OrderKafkaPublisher.ORDER_CREATED, savedOrder);
         return savedOrder;
     }
     public List<Order> getAll() {
@@ -149,9 +149,36 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
 
         if ("APROBADO".equals(savedOrder.getStatus())) {
-            eventPublisher.publishShipmentDispatch(savedOrder);
+            // shipment crea el envío al consumir este evento: si no se puede publicar, el pedido no
+            // puede quedar aprobado sin envío, así que vuelve a CREADO para reintentar después
+            try {
+                kafkaPublisher.publishAndWait(OrderKafkaPublisher.ORDER_APPROVED, savedOrder);
+            } catch (Exception e) {
+                savedOrder.setStatus("CREADO");
+                orderRepository.save(savedOrder);
+                throw new BusinessRuleException(
+                        "2009",
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "No se pudo despachar el pedido porque Kafka no está disponible, intenta nuevamente"
+                );
+            }
+        } else if ("RECHAZADO".equals(savedOrder.getStatus())) {
+            kafkaPublisher.publish(OrderKafkaPublisher.ORDER_REJECTED, savedOrder);
         }
 
         return savedOrder;
+    }
+
+    // Lo invoca el consumidor Kafka de shipment-events
+    public Order registerShipmentStatus(Long orderId, String shipmentStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessRuleException(
+                        "2008",
+                        HttpStatus.NOT_FOUND,
+                        "Pedido no encontrado para el evento de envío: " + orderId
+                ));
+
+        order.setShipmentStatus(shipmentStatus);
+        return orderRepository.save(order);
     }
 }
