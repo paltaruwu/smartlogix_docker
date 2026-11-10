@@ -67,7 +67,7 @@ sudo docker logs sl-kafka-init | tail -15
 ```
 
 - `sl-kafka1`, `sl-kafka2` y `sl-kafka3` deben decir `(healthy)`.
-- `kafka-init` debe terminar con `Created topic order-events` y `shipment-events`.
+- `kafka-init` debe terminar describiendo los tópicos `order-events`, `shipment-events` e `inventory-events` (con sus `.DLT`). Si ya existían, no imprime «Created topic»: es normal.
 - Eureka (puerto 8761) debe listar los servicios; los de Java tardan 1 a 2 minutos en registrarse.
 
 Tópicos y grupos desde la EC2:
@@ -116,6 +116,6 @@ done
 
 ## Demostración (qué mostrar)
 
-1. **Kafka-UI** (túnel 8085): Topics (`order-events` y `shipment-events` con 3 particiones y 3 réplicas), Brokers (3), Consumers (3 grupos, con lag y offsets).
+1. **Kafka-UI** (túnel 8085): Topics (`order-events`, `shipment-events` e `inventory-events` con 3 particiones y 3 réplicas), Brokers (3), Consumers (4 grupos, con lag y offsets: `order-group`, `inventory-group`, `shipment-group` e `inventory-stock-group`).
 2. **RabbitMQ** (túnel 15672): Queues (3 colas con sus DLQ), Exchanges (`smartlogix.direct` y `smartlogix.topic`), Admin (2 nodos).
 3. **Flujo:** crear un pedido en la tienda, aprobarlo desde Admin y ver el evento en Kafka-UI; contratar un técnico y ver pasar los mensajes por RabbitMQ.

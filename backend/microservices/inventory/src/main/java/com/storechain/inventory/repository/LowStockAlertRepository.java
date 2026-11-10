@@ -8,4 +8,6 @@ import java.util.List;
 public interface LowStockAlertRepository extends JpaRepository<LowStockAlert, Long> {
 
     List<LowStockAlert> findAllByOrderByIdDesc();
+
+    List<LowStockAlert> findByProductId(Long productId);
 }

@@ -22,6 +22,10 @@ public class LowStockAlert {
     private String orderNumber;
     private LocalDateTime createdAt;
 
+    // Una alerta se cierra cuando una reposición deja el producto otra vez sobre el umbral
+    private Boolean resolved = false;
+    private LocalDateTime resolvedAt;
+
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();

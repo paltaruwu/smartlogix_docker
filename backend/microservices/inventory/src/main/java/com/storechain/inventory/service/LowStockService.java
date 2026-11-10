@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -52,6 +53,32 @@ public class LowStockService {
                         product.getTitle(), product.getStock(), threshold, event.getOrderNumber());
             }
         }
+    }
+
+    /**
+     * Cierra las alertas abiertas de un producto cuando, tras una reposición, su stock supera el umbral.
+     * Es idempotente: Kafka entrega al menos una vez, y repetir el evento no cambia nada.
+     */
+    public int resolveAlerts(Long productId, Double stockAfter) {
+        if (stockAfter <= threshold) {
+            return 0;
+        }
+
+        List<LowStockAlert> open = alertRepository.findByProductId(productId).stream()
+                .filter(a -> !Boolean.TRUE.equals(a.getResolved()))
+                .toList();
+
+        open.forEach(a -> {
+            a.setResolved(true);
+            a.setResolvedAt(LocalDateTime.now());
+        });
+        alertRepository.saveAll(open);
+
+        if (!open.isEmpty()) {
+            log.info("[LOW-STOCK] {} alerta(s) del producto {} resueltas: stock repuesto a {} (umbral {})",
+                    open.size(), productId, stockAfter, threshold);
+        }
+        return open.size();
     }
 
     public List<LowStockAlert> listAlerts() {
