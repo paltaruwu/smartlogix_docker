@@ -25,6 +25,12 @@ create shipment-events \
   --config segment.ms=3600000 \
   --config min.insync.replicas=2
 
+# Cambios de stock (reposiciones desde el panel Admin): se conservan 7 días
+create inventory-events \
+  --config cleanup.policy=delete \
+  --config retention.ms=604800000 \
+  --config min.insync.replicas=2
+
 # Dead Letter Topics: mensajes que fallaron tras los reintentos, se conservan 14 días para revisión
 create order-events.DLT \
   --config cleanup.policy=delete \
@@ -32,7 +38,11 @@ create order-events.DLT \
 create shipment-events.DLT \
   --config cleanup.policy=delete \
   --config retention.ms=1209600000
+create inventory-events.DLT \
+  --config cleanup.policy=delete \
+  --config retention.ms=1209600000
 
 echo "Tópicos creados:"
 kafka-topics --bootstrap-server "$BOOTSTRAP" --describe --topic order-events
 kafka-topics --bootstrap-server "$BOOTSTRAP" --describe --topic shipment-events
+kafka-topics --bootstrap-server "$BOOTSTRAP" --describe --topic inventory-events

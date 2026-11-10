@@ -3,6 +3,7 @@ package com.storechain.inventory.service;
 import com.storechain.inventory.entities.InventoryMovement;
 import com.storechain.inventory.entities.Product;
 import com.storechain.inventory.exception.BusinessRuleException;
+import com.storechain.inventory.messaging.InventoryKafkaPublisher;
 import com.storechain.inventory.repository.InventoryMovementRepository;
 import com.storechain.inventory.repository.ProductRepository;
 import java.util.List;
@@ -18,6 +19,9 @@ public class InventoryService {
 
     @Autowired
     private InventoryMovementRepository movementRepository;
+
+    @Autowired
+    private InventoryKafkaPublisher kafkaPublisher;
 
     public List<Product> getAll() {
         return repository.findAll();
@@ -104,6 +108,9 @@ public class InventoryService {
         movement.setQuantity(quantity);
         movement.setReason(reason != null ? reason : "Ingreso manual de stock");
         movementRepository.save(movement);
+
+        // Avisa por Kafka (inventory-events); si Kafka no está disponible, la reposición igual queda guardada
+        kafkaPublisher.publishReplenished(product, quantity, movement.getReason());
 
         return product;
     }

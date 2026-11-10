@@ -34,6 +34,9 @@ public class KafkaConfig {
     @Value("${kafka.topic.order-events}")
     private String orderEventsTopic;
 
+    @Value("${kafka.topic.inventory-events}")
+    private String inventoryEventsTopic;
+
     @Value("${kafka.retry.max-attempts}")
     private long maxAttempts;
 
@@ -44,6 +47,28 @@ public class KafkaConfig {
     @Bean
     public NewTopic orderEventsDlt() {
         return TopicBuilder.name(orderEventsTopic + ".DLT")
+                .partitions(3)
+                .replicas(3)
+                .config(TopicConfig.RETENTION_MS_CONFIG, "1209600000")
+                .build();
+    }
+
+    // Tópico que inventory produce y consume: cambios de stock (reposiciones), se conservan 7 días
+    @Bean
+    public NewTopic inventoryEventsTopic() {
+        return TopicBuilder.name(inventoryEventsTopic)
+                .partitions(3)
+                .replicas(3)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG, "604800000")
+                .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2")
+                .build();
+    }
+
+    // Dead Letter Topic de inventory-events
+    @Bean
+    public NewTopic inventoryEventsDlt() {
+        return TopicBuilder.name(inventoryEventsTopic + ".DLT")
                 .partitions(3)
                 .replicas(3)
                 .config(TopicConfig.RETENTION_MS_CONFIG, "1209600000")
